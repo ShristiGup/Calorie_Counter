@@ -1,53 +1,37 @@
 from django.db import models
-from django.utils import timezone
 from django.contrib.auth.models import User
+from main_app.models import *
+from django import forms
+from PIL import Image
 
 # Create your models here.
-class PlanCategory(models.Model):
-    title = models.CharField(max_length=40)
-    desc = models.TextField()
-    image = models.ImageField(default='plan.jpg',upload_to='plan_pics')
+
+def validate_input(inp):
+    if inp<=0:
+        raise forms.ValidationError('Negative Values are not allowed!!!')
+
+class Profile(models.Model):
+    user = models.OneToOneField(User,on_delete=models.CASCADE)
+    image = models.ImageField(default="test.jpg",upload_to="user_pics")
+    plan = models.ForeignKey(PlanCategory,on_delete=models.CASCADE,null=True)
+    height = models.DecimalField(max_digits=5,decimal_places=2,validators=[validate_input],null=True)
+    weight = models.DecimalField(max_digits=5,decimal_places=2,validators=[validate_input],null=True)
+    gender = models.CharField(max_length=10,null=True)
+    age = models.IntegerField(validators=[validate_input],null=True)
+    lifestyle = models.CharField(max_length=50,null=True)
+    calorie_goal = models.CharField(max_length=20,null=True)
+    ideal_wt = models.CharField(max_length=30,null=True)
+    target_wt = models.IntegerField(null=True)
 
     def __str__(self):
-        return self.title
+        return f'{self.user.username} Profile'
 
-    class Meta: 
-        verbose_name_plural = 'Plan Categories'
+    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
+        super().save(force_insert, force_update, using, update_fields)
 
-class MealCategory(models.Model):
-    title = models.CharField(max_length=50)
+        img = Image.open(self.image.path)
 
-    def __str__(self):
-        return self.title
-
-    class Meta:
-        verbose_name_plural = 'Meal Categories'
-
-class UserFoodItems(models.Model):
-    user = models.ForeignKey(User,on_delete=models.CASCADE,null=True)
-    name = models.CharField(max_length=100,null=True)
-    meal_cat = models.ForeignKey(MealCategory,on_delete=models.CASCADE,null=True,default="BreakFast")
-    quantity = models.PositiveIntegerField(default=0)
-    calories = models.FloatField(default=0)
-    fats = models.FloatField(null=True)
-    proteins = models.FloatField(null=True)
-    carbs = models.FloatField(null=True)
-    date_added = models.DateField(default=timezone.now)
-
-    def __str__(self):
-        return self.name
-
-    class Meta: 
-        verbose_name = 'User Food Item'
-
-class PastRecords(models.Model):
-    user = models.ForeignKey(User,on_delete=models.CASCADE,null=True)
-    cal_goal = models.PositiveIntegerField(null=True)
-    cal_consumed = models.PositiveIntegerField(null=True)
-    date_of_record = models.DateField(null=True)
-
-    def __str__(self):
-        return f"{self.user.username}'s {self.date_of_record} Record"
-
-    class Meta: 
-        verbose_name = 'Past Record'
+        if img.height>300 or img.width>300:
+            output_size = (300,300)
+            img.thumbnail(output_size)
+            img.save(self.image.path)

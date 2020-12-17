@@ -1,168 +1,189 @@
 from django.shortcuts import render,redirect
-from django.urls import reverse
-from .models import *
-from users.models import *
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth import authenticate,login,logout
+from .forms import UserRegisterForm,ProfilePictureUpdateForm
 from django.contrib.auth.decorators import login_required
-from .forms import *
 from django.contrib import messages
-import requests
-import json
+from main_app.models import *
+from .models import *
+from main_app.models import *
+from django.utils import timezone
 from datetime import date,timedelta
 
 # Create your views here.
-@login_required(login_url='login')
-def home(request):
-    p_obj = Profile.objects.get(user=request.user)
-    food_items = UserFoodItems.objects.filter(user=request.user,date_added=date.today())
-    breakfast_items = UserFoodItems.objects.filter(user=request.user,date_added=date.today(),meal_cat=1)
-    lunch_items = UserFoodItems.objects.filter(user=request.user,date_added=date.today(),meal_cat=2)
-    eve_snack_items = UserFoodItems.objects.filter(user=request.user,date_added=date.today(),meal_cat=3)
-    dinner_items = UserFoodItems.objects.filter(user=request.user,date_added=date.today(),meal_cat=4)
+def register(request):
+    if request.user.is_authenticated:
+        return redirect("home")
+    else:
+        if request.method == "POST":
+            form = UserRegisterForm(request.POST)
+            if form.is_valid():
+                form.save()
+                user = form.cleaned_data['username']
+                messages.success(request,'Account successfully created for '+ user+'!')
+                return redirect("login")
+        else:
+            form = UserRegisterForm()
+        context = {"form":form}
+        return render(request,"users/register.html",context)
 
-    prev_day = date.today()-timedelta(days=1)
-    prev_day_items = UserFoodItems.objects.filter(user=request.user,date_added=prev_day)
-    last_item_of_day = UserFoodItems.objects.filter(user=request.user).last()
-    
-    try:
-        if date.today() > last_item_of_day.date_added and last_item_of_day.date_added == prev_day:
-            cal_for_prevday = 0
-            for i in prev_day_items:
-                cal_for_prevday+=i.calories*i.quantity
-            cal_for_prevday = round(cal_for_prevday)
-            prev_day_obj = PastRecords.objects.filter(user=request.user).last()
-            if prev_day_obj.date_of_record != prev_day:
-                rec_obj = PastRecords(user=request.user,cal_goal=request.user.profile.calorie_goal,cal_consumed=cal_for_prevday,date_of_record=prev_day)
-                rec_obj.save()
-    except:
-        pass
+def loginPage(request):
+    if request.user.is_authenticated:
+        return redirect("home")
+    else:
+        if request.method == "POST":
+            usrnme = request.POST.get('username')
+            pswd = request.POST.get('password')
+            user = authenticate(request,username=usrnme,password=pswd)
+            if user is not None:
+                login(request,user)
+                cal_goal = user.profile.calorie_goal
+                if cal_goal:
+                    return redirect('home')
+                else:
+                    return redirect('plan_category')
+            else:
+                messages.info(request,'Either username or password is incorrect!')
 
-    cal_consumed = 0
-    for i in food_items:
-        cal_consumed+=(i.calories*i.quantity)
-    cal_consumed = round(cal_consumed)
+        return render(request,"users/login.html")
 
-    msg = "Your Remaining Calories for the Day are..."
-    try:
-        cal_rem = int(p_obj.calorie_goal)-cal_consumed
-
-        if cal_rem==0:
-            msg = "Yayy!You have completed your goal for today...No any remaining calories!"
-            cal_rem = ""
-
-        if cal_rem<0:
-            msg = "You have exceeded your calorie goal for today!"
-            cal_rem = ""
-        context = {'profile':p_obj,'cal_consumed':cal_consumed,'cal_rem':cal_rem,'food_items':food_items,'b_items':breakfast_items,'l_items':lunch_items,'eve_items':eve_snack_items,'din_items':dinner_items,'message':msg}
-        return render(request,'main_app/home_page.html',context)
-    except:
-        return render(request,'main_app/home_page.html')
+def logoutUser(request):
+    logout(request)
+    return redirect("login")
 
 @login_required(login_url='login')
-def plan_category(request):
+def details_form(request,id):
     if request.user.is_authenticated and request.user.profile.calorie_goal:
         return redirect("home")
     else:
-        plans = PlanCategory.objects.all()
-        context = {'plans':plans}
-        return render(request,'main_app/plan_category.html',context)
+        flag = 0
+        plan_chosen = PlanCategory.objects.get(pk = id)
+        if request.method == "POST":
+            age = request.POST.get('age')
+            gender = request.POST.get('gender')
+            height = request.POST.get('height') 
+            weight = request.POST.get('weight')
+            lifestyle = request.POST.get('lifestyle')
+            if int(age)<=0 or int(age)>=130:
+                messages.info(request,'Age entered is invalid!')
+                flag = 1
+            if float(height)<=0 or float(height)>=250:
+                messages.info(request,'Height entered is invalid!')
+                flag = 1
+            if float(weight)<=0 or float(weight)>=180:
+                messages.info(request,'Weight entered is invalid!')
+                flag = 1
+            if gender is None:
+                messages.info(request,'Please select your gender...')
+                flag = 1
+            if flag==0:
+                p_obj = Profile.objects.get(user=request.user)
+                p_obj.plan = plan_chosen
+                p_obj.age = age
+                p_obj.gender = gender
+                p_obj.height = height
+                p_obj.weight = weight
+                p_obj.lifestyle = lifestyle
+                
+                p_obj.save()
+                return redirect('set_target_wt')
+            else:
+                return redirect('filling_details',id=id)
+        else:
+            context = {'plan':plan_chosen}
+            return render(request,"users/details_form.html",context)
 
 @login_required(login_url='login')
-def select_food(request):
-    form = FoodDetailsForm()
-    form_id1 = request.POST.get("first",False)
-    form_id2 = request.POST.get("second",False)
+def target_wt(request):
+    if request.user.is_authenticated and request.user.profile.calorie_goal:
+        return redirect("home")
+    else:
+        p_obj = Profile.objects.get(user = request.user)
+        plan_chosen = p_obj.plan
+        h = p_obj.height
+        w = p_obj.weight
+        ht = float(h)
+        wt = float(w)
+        bmi = round((wt/((ht*ht)/10000)),2)
+        if bmi<18.5:
+            bmi_cat = "UnderWeight"
+        elif 18.5<=bmi<=25:
+            bmi_cat = "Normal"
+        elif bmi>25:
+            bmi_cat = "OverWeight"
+        gender = p_obj.gender
+        if gender=="female":
+            ideal_wt = 45.5 + (0.91 * (ht-152.4))
+        else:
+            ideal_wt = 50 + (0.91 * (ht-152.4))
+        ideal_wt_low = round(ideal_wt-5)
+        ideal_wt_high = round(ideal_wt+5)
 
-    if request.method=="POST" and form_id1:
-        globals()['food_item'] = []
-        food = request.POST.get("food_item")
-        if food:
-            ARGS = {
-            "appId":"16aee158",
-            "appKey":"746d5b3d7c4fc8e9120d126c95405665",
-            "query": food,
-            "fields": [
-            "item_name",
-            "nf_serving_size_qty",
-            "nf_serving_size_unit",
-            "nf_calories",
-            "nf_protein",
-            "nf_total_fat",
-            "nf_total_carbohydrate"
-        ],
-            }
-            url = "https://api.nutritionix.com/v1_1/search/"
-            # response = requests.get('https://api.nutritionix.com/v1_1/search/mcdonalds?results=0:20&fields=item_name,brand_name,item_id,nf_calories&appId=16aee158&appKey=746d5b3d7c4fc8e9120d126c95405665').json()
-            response = requests.post(url,json= ARGS)
-            data = json.loads(response.content.decode('utf-8'))               
-            try:
-                query = data["hits"][:1]
-            except:
-                messages.warning(request,"This type of food does not exist!!!")
-                return redirect('select_food')
-            
-            food_item.append(query[0])
-            
-            food_name = query[0]['fields']['item_name']
-            context = {"data":query,"form":form,"food_name":food_name,"food":food}
-            return render(request,'main_app/select_food.html',context)
-    elif request.method=="POST" and form_id2:
-        form = FoodDetailsForm(request.POST)
-        try:
-            f_name = globals()['food_item'][0]['fields']['item_name']
-            f_cal = globals()['food_item'][0]['fields']['nf_calories']
-            f_pro = globals()['food_item'][0]['fields']['nf_protein']
-            f_fat = globals()['food_item'][0]['fields']['nf_total_fat']
-            f_carb = globals()['food_item'][0]['fields']['nf_total_carbohydrate']
-        except:
-            messages.warning(request,"Please research for your food item!!!")
-            return redirect('select_food')
+        if request.method == "POST":
+            target_weight = request.POST.get('target_weight')
+            if ideal_wt-10<=float(target_weight)<=ideal_wt+10:
+                p_obj.ideal_wt = round(ideal_wt,2)
+                p_obj.target_wt = target_weight
+                p_obj.save()
+                return redirect('calorie_goal')
+            else:
+                messages.info(request,'Please select a correct target weight!')
+        context = {'plan_chosen':plan_chosen,'height':ht,'weight':wt,'bmi':bmi,'bmi_cat':bmi_cat,'ideal_wt_low':ideal_wt_low,'ideal_wt_high':ideal_wt_high}
+        return render(request,"users/set_target_wt.html",context)
+
+@login_required(login_url='login')
+def calorie_goal(request):
+    if request.user.is_authenticated and request.user.profile.calorie_goal:
+        return redirect("home")
+    else:
+        p_obj = Profile.objects.get(user = request.user)
+        gender = p_obj.gender
+        h = p_obj.height
+        w = p_obj.weight
+        ht = float(h)
+        wt = float(w)
+        age = p_obj.age
+        lifestyle = p_obj.lifestyle
+        plan = str(p_obj.plan)
         
+        if gender=="Male":
+            bmr = (10*wt)+(6.25*ht)-(5*age)+5
+        else:
+            bmr = (10*wt)+(6.25*ht)-(5*age)-161
         
-        if form.is_valid():
-            quan = form.cleaned_data.get('quantity')
-            meal = form.cleaned_data.get('meal_cat')
+        if lifestyle=="Sedentary or light activity":
+            cal_goal = bmr*1.53
+        elif lifestyle=="Active or moderately active":
+            cal_goal = bmr*1.76
+        else:
+            cal_goal = bmr*2.25
 
-            if quan==0:
-                messages.warning(request,"Quantity can't be empty!!!")
-                return redirect('select_food')
+        cal_goal = round(cal_goal)
+        print(cal_goal)
+        if plan=="Vegan Diet":
+            cal_goal = cal_goal-300
+        elif plan == "Weight Loss":
+            cal_goal = cal_goal-700
+        elif plan=="Food Combining":
+            cal_goal = cal_goal-400
+        
+        p_obj.calorie_goal = cal_goal
+        p_obj.save()
+        context={'cal_goal':cal_goal}
+        return render(request,"users/calorie_goal.html",context)
 
-            f_obj = UserFoodItems(user=request.user,name=f_name,meal_cat=meal,quantity=quan,calories=f_cal,fats=f_fat,proteins=f_pro,carbs=f_carb)
-            f_obj.save()
-
-            messages.success(request,'Hooray! Your food item has been added successfully...')
-            return redirect('select_food')
-        context = {"form":form}
-        return render(request,'main_app/select_food.html',context)
-    return render(request,'main_app/select_food.html',{"form":form})
-
-@login_required(login_url='login')
-def updatefooditem(request,id):
-    food = UserFoodItems.objects.get(id = id)
-    form = UpdateFoodItem(instance=food)
+def profile(request):
+    all_food_items_today = UserFoodItems.objects.filter(user=request.user,date_added=date.today())
+    past_seventh_day = date.today()-timedelta(days=7)
+    
+    records = PastRecords.objects.filter(date_of_record__gte=past_seventh_day,date_of_record__lte=date.today(),user=request.user)
     if request.method=="POST":
-        form = UpdateFoodItem(request.POST,instance=food)
-        if form.is_valid():
-            quan = form.cleaned_data.get('quantity')
-            meal = form.cleaned_data.get('meal_cat')
-
-            if quan==0:
-                messages.warning(request,"Quantity can't be empty!!!")
-                return redirect('update_food_item',id = id)
-            else:   
-                food.quantity = quan
-                food.meal_cat = meal
-                food.save()
-                messages.success(request,'Hooray! Your food item has been updated successfully...')
-                return redirect('profile')
-    context = {'form':form}
-    return render(request,'main_app/update_food.html',context)
-
-@login_required(login_url='login')
-def deletefooditem(request,id):
-    food = UserFoodItems.objects.get(id = id)
-    if request.method=="POST":
-        food.delete()
-        messages.info(request,'Your food item has been deleted!')
-        return redirect('profile')
-    context = {'food':food}
-    return render(request,'main_app/delete_food.html',context)
+        p_form = ProfilePictureUpdateForm(request.POST,request.FILES,instance=request.user.profile)
+        if p_form.is_valid():
+            p_form.save()
+            messages.success(request,f'Hooray!!!Your picture picture has been updated!')
+            return redirect('profile')
+    else:
+        p_form = ProfilePictureUpdateForm(instance=request.user.profile)
+        context = {'p_form':p_form,'food_items':all_food_items_today,'records':records}
+    return render(request,'users/profile.html',context)

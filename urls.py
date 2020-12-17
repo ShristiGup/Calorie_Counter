@@ -1,15 +1,12 @@
 from django.urls import path
 from . import views
-from django.conf import settings
-from django.conf.urls.static import static
 
 urlpatterns = [
-    path('',views.home,name="home"),
-    path('plans/',views.plan_category,name="plan_category"),
-    path('select-food/',views.select_food,name="select_food"),
-    path('update-food-item/<int:id>',views.updatefooditem,name="update_food_item"),
-    path('delete-food-item/<int:id>',views.deletefooditem,name="delete_food_item"),
+    path('register/',views.register,name="register"),
+    path('login/',views.loginPage,name="login"),
+    path('logout/',views.logoutUser,name="logout"),
+    path('filling-details/<int:id>/',views.details_form,name="filling_details"),
+    path('set-target-wt/',views.target_wt,name="set_target_wt"),
+    path('calorie-goal/',views.calorie_goal,name="calorie_goal"),
+    path('profile/',views.profile,name="profile"),
 ]
-
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

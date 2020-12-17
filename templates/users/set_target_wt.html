@@ -1,0 +1,70 @@
+{% extends 'main_app/index.html' %}
+{% block content %}
+{% for msg in messages %}
+  <div class="alert alert-warning mt-1" role="alert">
+    {{ msg }}
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+      <span aria-hidden="true">&times;</span>
+    </button>
+  </div>
+  {% endfor %}
+<div class="container my-4" style="max-width: 50%;">
+  <div class="card py-2 px-4 mb-4">
+<form method="post">
+  {% csrf_token %}
+  <h2 class="text-center">User Details Form</h2>
+    <div class="form-group">
+     <fieldset class="border p-2">
+       <legend class="w-auto">Personalia</legend>
+       <div class="form-row text-center">
+        <div class="form-group col-md-6">
+          <label for="name">Your Name:</label>
+            <input type="text" readonly class="form-control-plaintext text-center font-weight-bold" id="name" value="{{ user.username }}">
+        </div>
+        <div class="form-group col-md-6">
+          <label for="plan">Your Selected Plan:</label>
+          <input type="text" readonly class="form-control-plaintext text-center font-weight-bold" id="plan" value="{{ plan_chosen }}">
+        </div>
+      </div>
+     </fieldset>
+    </div>
+   
+    <div class="form-group">
+      <fieldset class="border p-2">
+        <legend class="w-auto">BMI Calculations</legend>
+        <div class="form-row text-center">
+         <div class="form-group col-md-6">
+           <label for="bmi">Your BMI is:</label>
+           <input type="text" readonly class="form-control-plaintext text-center font-weight-bold" id="bmi" value="{{ bmi }}">
+         </div>
+         <div class="form-group col-md-6">
+           <label for="bmi_cat">BMI Category:</label>
+           <input type="text" readonly class="form-control-plaintext text-center font-weight-bold" id="bmi_cat" value="{{ bmi_cat }}">
+         </div>
+       </div>
+       <div class="form-group text-center">
+        <label for="ideal_wt">According to your BMI,your ideal weight range is:</label>
+        <input type="text" readonly class="form-control-plaintext text-center font-weight-bold" id="ideal_wt" value="{{ ideal_wt_low }} - {{ ideal_wt_high }}">
+      </div>
+       
+      </fieldset>
+     </div>
+
+     <div class="form-group">
+      <fieldset class="border p-2">
+        <legend class="w-auto">Set Up Your Target Weight(in kg)</legend>
+        <div class="text-center">
+        <p>Enter the weight goal you wanna achieve...</p>
+         <div class="form-group">
+           <label for="bmi">Target Weight:</label>
+           <input type="text" class="form-control text-center" id="bmi" name="target_weight" style="width: 50%;margin: 0 auto;">
+         </div>
+      </fieldset>
+     </div>
+     <div class="text-center">
+       <button type="submit" class="btn btn-primary">Submit</button>
+     </div>
+  </form>
+</div>
+</div>
+{% endblock content %}
