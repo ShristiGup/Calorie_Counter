@@ -1,0 +1,182 @@
+{% extends 'main_app/index.html' %}
+{% block nav %}
+<ul class="navbar-nav mr-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="/">Home <span class="sr-only">(current)</span></a>
+  </li>
+  <li class="nav-item active">
+    <a class="nav-link" href="{% url 'profile' %}">Profile</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="{% url 'select_food' %}">Select Food</Select></a>
+  </li>
+</ul>
+{% endblock nav %}
+{% block main %}
+<h2 class="text-center mt-2 ml-4">Your Profile</h2>
+<div class="container">
+  <div class="card pt-4 px-4 bg-light mb-4 ml-4">
+    <div class="row">
+      <div class="col">
+        <div class="media">
+          <img class="rounded-circle" style="border: 3px solid black;" src="{{ user.profile.image.url }}" height="125"
+            width="125">
+          <div class="media-body">
+            <h2 class="account-heading ml-3">{{ user.username }}</h2>
+            <p class="text-secondary ml-3">{{ user.email }}</p>
+          </div>
+        </div>
+        <form method="POST" enctype="multipart/form-data" class="pt-1 mt-4">
+          {% csrf_token %}
+          <fieldset class="form-group border px-2 py-4">
+            <legend class="w-auto">Update Your Profile Pic Here</legend>
+            <div class="form-row">
+              <div class="form-group col-md-9">
+                {{ p_form.as_p }}
+              </div>
+              <div class="form-group text-center col-md-3">
+                <button type="submit" class="btn btn-outline-warning text-success font-weight-bold"
+                  style="position: absolute;top:20%;left:25%">Update</button>
+              </div>
+            </div>
+          </fieldset>
+      </div>
+      <div class="col">
+        <fieldset class="form-group border">
+          <legend class="w-auto">Other Personalia</legend>
+          <div class="form-row text-center">
+            <div class="form-group col-md-6">
+              <label for="plan">Your Selected Plan:</label>
+              <input type="text" readonly class="form-control-plaintext text-center font-weight-bold" id="plan"
+                value="{{ user.profile.plan }}">
+            </div>
+            <div class="form-group col-md-6">
+              <label for="name">Your Calorie Goal:</label>
+              <input type="text" readonly class="form-control-plaintext text-center font-weight-bold" id="name"
+                value="{{ user.profile.calorie_goal }}">
+            </div>
+
+          </div>
+          <div class="form-row text-center">
+            <div class="form-group col-md-6">
+              <label for="plan">Your Height:</label>
+              <input type="text" readonly class="form-control-plaintext text-center font-weight-bold" id="plan"
+                value="{{ user.profile.height }}">
+            </div>
+            <div class="form-group col-md-6">
+              <label for="name">Your Weight:</label>
+              <input type="text" readonly class="form-control-plaintext text-center font-weight-bold" id="name"
+                value="{{ user.profile.weight }}">
+            </div>
+
+          </div>
+          <div class="form-row text-center">
+            <div class="form-group col-md-6">
+              <label for="plan">Your Gender:</label>
+              <input type="text" readonly class="form-control-plaintext text-center font-weight-bold" id="plan"
+                value="{{ user.profile.gender }}">
+            </div>
+            <div class="form-group col-md-6">
+              <label for="name">Your Age:</label>
+              <input type="text" readonly class="form-control-plaintext text-center font-weight-bold" id="name"
+                value="{{ user.profile.age }}">
+            </div>
+
+          </div>
+          <div class="text-center">
+            <div class="form-group">
+              <label for="plan">Your Target Weight:</label>
+              <input type="text" readonly class="form-control-plaintext text-center font-weight-bold" id="plan"
+                value="{{ user.profile.target_wt }}">
+            </div>
+          </div>
+        </fieldset>
+      </div>
+    </div>
+    </form>
+  </div>
+</div>
+<h2 class="text-center mt-2 ml-4">Records Of Past Seven Days</h2>
+{% if records %}
+<table class="table table-striped table-bordered container mt-4 text-center">
+  <thead class="bg-success">
+    <tr>
+      <th scope="col">Date</th>
+      <th scope="col">Calorie Consumed</th>
+      <th scope="col">Calorie Goal</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for i in records %}
+    <tr>
+      <td>{{ i.date_of_record }}</td>
+      <td>{{ i.cal_consumed }}</td>
+      <td>{{ i.cal_goal }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="card my-4 container text-center">
+  <div class="card-body">
+    <h5 class="card-title font-weight-bold">No Past Records Available!</h5>
+  </div>
+</div>
+{% endif %}
+<h2 class="text-center mt-2 ml-4">All Food Items Today</h2>
+{% if food_items %}
+<div class="container">
+  <h6>Total items consumed today by you: {{ food_items.count }}</h6>
+</div>
+<table class="table table-striped table-bordered container text-center">
+  <thead class="bg-success text-white">
+    <tr>
+      <th scope="col">S.No</th>
+      <th scope="col">Food Item</th>
+      <th scope="col">Quantity</th>
+      <th scope="col">Calories(Total)</th>
+      <th scope="col">Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for i in food_items %}
+    <tr class="values">
+      <th scope="row">{{ forloop.counter }}</th>
+      <td>{{ i.name }}</td>
+      <td id="quans">{{ i.quantity }}</td>
+      <td id="cals">{{ i.calories }}</td>
+      <td>
+        <button type="button" class="btn btn-warning"
+          onclick="location.href=`{% url 'update_food_item' i.id %}`">Update</button>
+        <button type="button" class="btn btn-danger ml-2"
+          onclick="location.href=`{% url 'delete_food_item' i.id %}`">Delete</button>
+      </td>
+
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="card mt-2 container text-center">
+  <div class="card-body">
+    <h5 class="card-title font-weight-bold">You have not added any food item yet!</h5>
+  </div>
+</div>
+{% endif %}
+{% endblock main %}
+
+
+{% block script %}
+<script type="text/javascript">
+  $(document).ready(function () {
+    // for each row:
+    $(".values").each(function () {
+      // get the values from this row:
+      var $val1 = $(this).find("#quans").html();
+      var $val2 = $(this).find("#cals").html();
+      var $total = ($val1) * ($val2);
+      $('#cals', this).html($total);
+    });
+  });
+</script>
+{% endblock script %}
